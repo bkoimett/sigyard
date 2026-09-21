@@ -19,7 +19,7 @@ Once created, every commit and PR references the issue it belongs to.
   ```
   <type>/<issue-number>-<short-slug>
   ```
-  Examples: `feat/5-source-list`, `chore/3-export-scripts`.
+  Examples: `feat/6-source-list`, `chore/4-export-scripts`.
 - `<type>` matches the commit type table in §2.
 - Keep a branch scoped to its issue. If work reveals a second, unrelated
   issue, open a new issue and a new branch. Don't scope-creep one branch.
@@ -58,8 +58,8 @@ Rules:
 
 Example sequence of commits for one issue:
 ```
-feat(sources): define source list with rationales (#5)
-docs(airtable): document signals and cards schema (#6)
+feat(sources): define source list with rationales (#6)
+docs(airtable): document signals and cards schema (#7)
 ```
 
 ## 3. Grouping commits and writing the PR description
@@ -71,11 +71,11 @@ ready to paste into GitHub's PR description field. Use this shape:
 ```
 ## Issue #<N>: <issue title>
 
-- feat(sources): define source list with rationales (#5)
-- docs(airtable): document signals and cards schema (#6)
+- feat(sources): define source list with rationales (#6)
+- docs(airtable): document signals and cards schema (#7)
 
 ---
-Closes #5
+Closes #6
 
 <one or two sentences summarizing what this PR does and any
 follow-up/TODO left for a later issue.>
@@ -87,7 +87,7 @@ follow-up/TODO left for a later issue.>
   auto-close the issue on merge.
 - If a PR addresses more than one issue (avoid this where possible; prefer
   one issue per PR), list every issue with its own closing keyword on its
-  own line: `Closes #4`, `Closes #5`.
+  own line: `Closes #5`, `Closes #6`.
 - The PR title should be the same as the issue title.
 
 ## 4. Before committing/pushing — checklist
@@ -141,122 +141,122 @@ production review queue.
 
 ### Milestone 1: Project Setup & Infrastructure
 
-**#1 — Add docker-compose stack for n8n + Postgres**
+**#2 — Add docker-compose stack for n8n + Postgres**
 `infra/docker-compose.yml` with n8n, a colocated Postgres (per `design.md`
 §1), a reverse proxy, and `n8n.env.example` listing the real required vars
 (basic auth credentials, encryption key, ports). No secrets in the
 committed file.
 
-**#2 — Stand up n8n with basic auth on the VPS**
+**#3 — Stand up n8n with basic auth on the VPS**
 Provision the VPS, run the compose stack, confirm n8n is reachable and
 protected by basic auth per `design.md` §4. Confirm execution history is
 enabled.
 
-**#3 — Add workflow export/import scripts**
+**#4 — Add workflow export/import scripts**
 `scripts/export-workflows.sh` pulls the running instance's workflows into
 `n8n/workflows/` as JSON, per `design.md` §6. Document the re-selecting-
 credentials-by-hand caveat from `design.md` §5 in the script header.
 
-**#4 — Enroll credentials per environment**
+**#5 — Enroll credentials per environment**
 Airtable token, the LLM provider key, and placeholder source keys as n8n
 credentials, named so the workflows can reference them by env (`design.md`
 §5, §8). No key value touches the repo.
 
 ### Milestone 2: Sources & Data Foundation
 
-**#5 — Finalize and justify the source list**
+**#6 — Finalize and justify the source list**
 Write `sources/sources.yaml` with slug, category, type, URL, schedule, key
 ref (if any), and a one-line rationale per source. This closes the PRD §6
 pre-build gate; scouting is not built before this is reviewed.
 
-**#6 — Document the Airtable base schema**
+**#7 — Document the Airtable base schema**
 `airtable/base-schema.md` covering the `signals`, `cards`, and `labels`
 tables, every field, the uniqueness constraints, and the review-queue and
 labeled-dataset views from `design.md` §2.
 
-**#7 — Create and apply the Airtable base**
+**#8 — Create and apply the Airtable base**
 Create the dev `sigyard` base and apply the schema from `design.md` §2,
 including the unique-enforced `signals.Content hash` field and the
 `(Content hash, Decision)` unique pair on `labels`.
 
-**#8 — Build the scout workflow for RSS sources**
+**#9 — Build the scout workflow for RSS sources**
 Reads `sources/sources.yaml`, pulls each RSS source on its schedule,
 computes the shared `Content hash` normalization from `design.md` §3, and
 inserts into `signals`.
 
-**#9 — Build the scout workflow for API/search sources**
-Same contract as #8 for sources that need a key, reading the n8n credential
+**#10 — Build the scout workflow for API/search sources**
+Same contract as #9 for sources that need a key, reading the n8n credential
 referenced by the source's key ref (`design.md` §5).
 
-**#10 — Verify the dedup boundary**
+**#11 — Verify the dedup boundary**
 Two overlapping scout runs on the same item must yield one signal: the
 second insert is rejected by Airtable and treated as "already seen," per
 `design.md` §7.
 
 ### Milestone 3: Classification & Triage
 
-**#11 — Write the classification prompt**
+**#12 — Write the classification prompt**
 `prompts/classify.md`: tag a signal trend/gig/arbitrage and score
 relevance, per the card fields in `design.md` §2. Provider-agnostic
 wording.
 
-**#12 — Build the classify workflow**
+**#13 — Build the classify workflow**
 Fetch unscored signals from Airtable, load `prompts/classify.md`, call the
 environment's LLM credential (`design.md` §5), and write back
 classification + relevance score on the signal. Fails loudly on LLM error.
 
-**#13 — Write the triage prompt**
+**#14 — Write the triage prompt**
 `prompts/triage.md`: turn a scored signal into the card fields (summary,
 why it matters, effort, possible actions, money potential, expiry), per
 `design.md` §2 and PRD §5 role 3.
 
-**#14 — Build the triage workflow**
+**#15 — Build the triage workflow**
 Load `prompts/triage.md`, generate the card, create the record in `cards`
 linked to its signal with `Status = queued`, per `design.md` §2. Confirm a
 generated card appears in the review-queue view.
 
 ### Milestone 4: Review, Approval & Feedback
 
-**#15 — Build the review-trigger workflow**
+**#16 — Build the review-trigger workflow**
 Poll `cards` for `Status` changes, per `design.md` §7. On approve or
 reject, append one row to `labels` (guarded by the unique
 `(Content hash, Decision)` pair) and set `Reviewed at`.
 
-**#16 — Write the draft-plan prompt**
+**#17 — Write the draft-plan prompt**
 `prompts/draft-plan.md`: draft an implementation plan for an approved card,
 provider-agnostic, per `design.md` §3.
 
-**#17 — Build the draft-plan workflow**
-Triggered by an approved card from #15. Only writes
+**#18 — Build the draft-plan workflow**
+Triggered by an approved card from #16. Only writes
 `cards.Implementation plan` when `Status = approved` AND the plan field is
 empty, so a doubled poll no-ops, per `design.md` §7.
 
-**#18 — Build the labeled dataset for feedback**
+**#19 — Build the labeled dataset for feedback**
 The labeled-dataset view and an export path from `labels`, so item text +
 decision + timestamp is available for the V1.5 few-shot step and the
 false-positive metric (`design.md` §2, §9).
 
-**#19 — Re-inject labeled examples into classification (V1.5)**
+**#20 — Re-inject labeled examples into classification (V1.5)**
 Extend the classify workflow to pull a recent sample from the labeled
 dataset into `prompts/classify.md` as few-shot examples, per PRD §6's
 V1.5 note.
 
 ### Milestone 5: Measurement, QA & Launch
 
-**#20 — Add signal-to-queue latency measurement**
+**#21 — Add signal-to-queue latency measurement**
 Query `cards` creation minus `signals.Fetched at` and alert when it
 exceeds the <24h PRD §8 target.
 
-**#21 — Track false-positive rate over time**
+**#22 — Track false-positive rate over time**
 Report approve/reject ratios from `labels` by source and over time, against
 the PRD §8 trend target.
 
-**#22 — Wire an error workflow for failed executions**
+**#23 — Wire an error workflow for failed executions**
 A workflow that fires when a scout/classify/triage/draft-plan execution
 fails, alerting via email (operational alerting only; the Slack/Telegram
 digest stays V1.5 per PRD §7), per `design.md` §9.
 
-**#23 — Production deploy and first end-to-end run**
+**#24 — Production deploy and first end-to-end run**
 Deploy the stack to production, point it at the production Airtable base
 (`design.md` §8), run the pipeline once, and confirm a real signal reaches
 the review queue with correct card fields.
